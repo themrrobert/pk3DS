@@ -38,7 +38,7 @@ namespace pk3DS
             string path = files[0]; // open first D&D
 
             if (sender == PB_Unpack)
-                openARC(path);
+                openARC(path, pBar1);
             else if (sender == PB_BCLIM)
                 openIMG(path);
             else if (sender == PB_Repack)
@@ -67,8 +67,8 @@ namespace pk3DS
             PB_BCLIM.BackgroundImage = img;
         }
 
-        private int threads;
-        private void openARC(string path, bool recursing = false)
+        internal static volatile int threads;
+        internal static void openARC(string path, ProgressBar pBar1, bool recursing = false)
         {
             string newFolder = "";
             try
@@ -101,7 +101,7 @@ namespace pk3DS
                     if (Directory.Exists(newFolder))
                     {   
                         foreach (string file in Directory.GetFiles(newFolder))
-                            openARC(file, true);
+                            openARC(file, pBar1, true);
                         batchRenameExtension(newFolder);
                     }
                 }
@@ -173,9 +173,16 @@ namespace pk3DS
                 case 1: // GARC Pack
                 {
                     if (threads > 0) { Util.Alert("Please wait for all operations to finish first."); return; }
+                    DialogResult dr = Util.Prompt(MessageBoxButtons.YesNoCancel, "Format Selection:",
+                        "Yes: Sun/Moon (Version 6)\nNo: XY/ORAS (Version 4)");
+                    if (dr == DialogResult.Cancel)
+                        return;
+
+                    var version = dr == DialogResult.Yes ? CTR.GARC.VER_6 : CTR.GARC.VER_4;
                     new Thread(() =>
                     {
-                        bool r = CTR.GARC.garcPackMS(path, folderName + ".garc", pBar1);
+                        string outfolder = Directory.GetParent(path).FullName;
+                        bool r = CTR.GARC.garcPackMS(path, Path.Combine(outfolder, folderName + ".garc"), version, pBar1);
                         if (!r) { Util.Alert("Packing failed."); return; }
                         // Delete path after repacking
                         if (CHK_Delete.Checked && Directory.Exists(path))
@@ -275,7 +282,7 @@ namespace pk3DS
             PB_BCLIM.Size = CLIMWindow;
         }
 
-        private void batchRenameExtension(string Folder)
+        private static void batchRenameExtension(string Folder)
         {
             if (!Directory.Exists(Folder)) 
                 return;

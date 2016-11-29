@@ -16,7 +16,7 @@ namespace pk3DS
         private const ushort KEY_TEXTCLEAR = 0xBE01;
         private const ushort KEY_TEXTWAIT = 0xBE02;
         private const ushort KEY_TEXTNULL = 0xBDFF;
-        private const bool SETEMPTYTEXT = true;
+        private const bool SETEMPTYTEXT = false;
         private static readonly byte[] emptyTextFile = { 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00 };
 
         public TextFile(byte[] data = null)
@@ -46,7 +46,7 @@ namespace pk3DS
                     result[i] = new LineInfo
                     {
                         Offset = BitConverter.ToInt32(Data, i * 8 + sdo + 4) + sdo,
-                        Length = BitConverter.ToInt32(Data, i * 8 + sdo + 8)
+                        Length = BitConverter.ToInt16(Data, i * 8 + sdo + 8)
                     };
                 return result;
             }
@@ -76,7 +76,8 @@ namespace pk3DS
                 LineInfo[] lines = LineOffsets;
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    byte[] EncryptedLineData = Data.Skip(lines[i].Offset).Take(lines[i].Length * 2).ToArray();
+                    byte[] EncryptedLineData = new byte[lines[i].Length * 2];
+                    Array.Copy(Data, lines[i].Offset, EncryptedLineData, 0, EncryptedLineData.Length);
                     byte[] DecryptedLineData = cryptLineData(EncryptedLineData, key);
                     result[i] = getLineString(DecryptedLineData);
                     key += KEY_ADVANCE;
@@ -97,7 +98,7 @@ namespace pk3DS
                 int bytesUsed = 0;
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    string text = value[i].Trim(); // ReSharper disable once RedundantLogicalConditionalExpressionOperand
+                    string text = (value[i] ?? "").Trim();
                     if (text.Length == 0 && SETEMPTYTEXT)
                         text = $"[~ {i}]";
                     byte[] DecryptedLineData = getLineData(text);
@@ -297,123 +298,29 @@ namespace pk3DS
             }
             return vals;
         }
+
+        public static GameConfig Config = new GameConfig(GameVersion.SM);
         private static ushort getVariableNumber(string variable)
         {
-            switch (variable)
+            var v = Config.getVariableCode(variable);
+            if (v != null)
+                return (ushort) v.Code;
+
+            try
             {
-                case "COLOR": return 0xFF00;
-                case "TRNAME": return 0x0100;
-                case "PKNAME": return 0x0101;
-                case "PKNICK": return 0x0102;
-                case "TYPE": return 0x0103;
-                case "LOCATION": return 0x0105;
-                case "ABILITY": return 0x0106;
-                case "MOVE": return 0x0107;
-                case "ITEM1": return 0x0108;
-                case "ITEM2": return 0x0109;
-                case "sTRBAG": return 0x010A;
-                case "BOX": return 0x010B;
-                case "EVSTAT": return 0x010D;
-                case "OPOWER": return 0x0110;
-                case "RIBBON": return 0x0127;
-                case "MIINAME": return 0x0134;
-                case "WEATHER": return 0x013E;
-                case "TRNICK": return 0x0189;
-                case "1stchrTR": return 0x018A;
-                case "SHOUTOUT": return 0x018B;
-                case "BERRY": return 0x018E;
-                case "REMFEEL": return 0x018F;
-                case "REMQUAL": return 0x0190;
-                case "WEBSITE": return 0x0191;
-                case "CHOICECOS": return 0x019C;
-                case "GSYNCID": return 0x01A1;
-                case "PRVIDSAY": return 0x0192;
-                case "BTLTEST": return 0x0193;
-                case "GENLOC": return 0x0195;
-                case "CHOICEFOOD": return 0x0199;
-                case "HOTELITEM": return 0x019A;
-                case "TAXISTOP": return 0x019B;
-                case "MAISTITLE": return 0x019F;
-                case "ITEMPLUR0": return 0x1000;
-                case "ITEMPLUR1": return 0x1001;
-                case "GENDBR": return 0x1100;
-                case "NUMBRNCH": return 0x1101;
-                case "iCOLOR2": return 0x1302;
-                case "iCOLOR3": return 0x1303;
-                case "NUM1": return 0x0200;
-                case "NUM2": return 0x0201;
-                case "NUM3": return 0x0202;
-                case "NUM4": return 0x0203;
-                case "NUM5": return 0x0204;
-                case "NUM6": return 0x0205;
-                case "NUM7": return 0x0206;
-                case "NUM8": return 0x0207;
-                case "NUM9": return 0x0208;
-                default:
-                    try { return Convert.ToUInt16(variable, 16); }
-                    catch { throw new ArgumentException($"Variable \"{variable}\" parse error."); }
+                return Convert.ToUInt16(variable, 16);
             }
+            catch { throw new ArgumentException($"Variable \"{variable}\" parse error."); }
         }
         private static string getVariableString(ushort variable)
         {
-            switch (variable)
-            {
-                case 0xFF00: return "COLOR"; // Change text line color (0 = white, 1 = red, 2 = blue...)
-                case 0x0100: return "TRNAME";
-                case 0x0101: return "PKNAME";
-                case 0x0102: return "PKNICK";
-                case 0x0103: return "TYPE";
-                case 0x0105: return "LOCATION";
-                case 0x0106: return "ABILITY";
-                case 0x0107: return "MOVE";
-                case 0x0108: return "ITEM1";
-                case 0x0109: return "ITEM2";
-                case 0x010A: return "sTRBAG";
-                case 0x010B: return "BOX";
-                case 0x010D: return "EVSTAT";
-                case 0x0110: return "OPOWER";
-                case 0x0127: return "RIBBON";
-                case 0x0134: return "MIINAME";
-                case 0x013E: return "WEATHER";
-                case 0x0189: return "TRNICK";
-                case 0x018A: return "1stchrTR";
-                case 0x018B: return "SHOUTOUT";
-                case 0x018E: return "BERRY";
-                case 0x018F: return "REMFEEL";
-                case 0x0190: return "REMQUAL";
-                case 0x0191: return "WEBSITE";
-                case 0x019C: return "CHOICECOS";
-                case 0x01A1: return "GSYNCID";
-                case 0x0192: return "PRVIDSAY";
-                case 0x0193: return "BTLTEST";
-                case 0x0195: return "GENLOC";
-                case 0x0199: return "CHOICEFOOD";
-                case 0x019A: return "HOTELITEM";
-                case 0x019B: return "TAXISTOP";
-                case 0x019F: return "MAISTITLE";
-                case 0x1000: return "ITEMPLUR0";
-                case 0x1001: return "ITEMPLUR1";
-                case 0x1100: return "GENDBR";
-                case 0x1101: return "NUMBRNCH";
-                case 0x1302: return "iCOLOR2";
-                case 0x1303: return "iCOLOR3";
-                case 0x0200: return "NUM1";
-                case 0x0201: return "NUM2";
-                case 0x0202: return "NUM3";
-                case 0x0203: return "NUM4";
-                case 0x0204: return "NUM5";
-                case 0x0205: return "NUM6";
-                case 0x0206: return "NUM7";
-                case 0x0207: return "NUM8";
-                case 0x0208: return "NUM9";
-                default: return variable.ToString("X4");
-            }
+            var v = Config.getVariableName(variable);
+            return v == null ? variable.ToString("X4") : v.Name;
         }
         
         // Exposed Methods
-        internal static string[] getStrings(string path)
+        internal static string[] getStrings(byte[] data)
         {
-            byte[] data = File.ReadAllBytes(path);
             TextFile t;
             try { t = new TextFile(data); } catch { return null; }
             return t.Lines;
